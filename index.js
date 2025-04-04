@@ -18,24 +18,24 @@ app.post("/api/download", async (req, res) => {
   const outputFile = path.join(__dirname, `video-${id}.mp4`)
   const command = `yt-dlp -f best -o "${outputFile}" "${url}"`
 
-  exec(command, async (err) => {
+  exec(command, (err) => {
     if (err) {
       console.error("yt-dlp failed:", err)
       return res.status(500).json({ error: "yt-dlp failed" })
     }
 
-    try {
-      const fileBuffer = fs.readFileSync(outputFile)
-      const base64 = fileBuffer.toString("base64")
-      const filename = path.basename(outputFile)
+    res.setHeader("Content-Disposition", `attachment; filename=video-${id}.mp4`)
+    res.setHeader("Content-Type", "video/mp4")
 
-      fs.unlinkSync(outputFile) // Nettoyage
+    const readStream = fs.createReadStream(outputFile)
+    readStream.pipe(res)
 
-      res.json({ base64, filename })
-    } catch (readErr) {
-      console.error("Read file failed:", readErr)
-      res.status(500).json({ error: "Failed to read downloaded file" })
-    }
+    // Supprimer le fichier après envoi
+    readStream.on("close", () => {
+      fs.unlink(outputFile, () => {
+        console.log("🧹 Vidéo supprimée :", outputFile)
+      })
+    })
   })
 })
 
